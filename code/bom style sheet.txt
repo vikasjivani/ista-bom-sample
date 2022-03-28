@@ -1,0 +1,338 @@
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:msxsl="urn:schemas-microsoft-com:xslt" xmlns:exslt="http://exslt.org/common" xmlns:aras="http://www.aras-corp.com" version="1.0" extension-element-prefixes="exslt">
+	<xsl:output method="html" omit-xml-declaration="yes" standalone="yes" indent="yes"/>
+	<xsl:variable name="MaxDepth">
+		<xsl:for-each select="Result/Item[@alias='Part']/depth">
+			<xsl:sort select="." data-type="number" order="descending"/>
+			<xsl:if test="position() = 1">
+				<xsl:value-of select="."/>
+			</xsl:if>
+		</xsl:for-each>
+	</xsl:variable>
+	<xsl:template match="/">
+		<html>
+			<head/>
+			<style type="text/css" userData="Global">
+				.cellSolid {
+				border-top:1px #000000 solid;
+				border-right:1px #000000 solid;
+				border-bottom:1px #000000 solid;
+				border-left:1px #000000 solid;
+				}
+				.cellSolidTopRight {
+				border-top:1px #000000 solid;
+				border-right:1px #000000 solid;
+				}
+				.cellSolidTopLeft {
+				border-top:1px #000000 solid;
+				border-left:1px #000000 solid;
+				}
+				.cellSolidRightBottom {
+				border-right:1px #000000 solid;
+				border-bottom:1px #000000 solid;
+				}
+				.cellSolidBottomLeft {
+				border-bottom:1px #000000 solid;
+				border-left:1px #000000 solid;
+				}
+				.cellSolidTop {
+				border-top:1px #000000 solid;
+				}
+				.cellSolidRight {
+				border-right:1px #000000 solid;
+				}
+				.cellSolidBottom {
+				border-bottom:1px #000000 solid;
+				}
+				.cellSolidLeft {
+				border-left:1px #000000 solid;
+				}
+				.cellDashed {
+				border-top:1px #666666 dashed;
+				border-right:1px #666666 dashed;
+				border-bottom:1px #666666 dashed;
+				border-left:1px #666666 dashed;
+				}
+				.cellDashedTopRight {
+				border-top:1px #666666 dashed;
+				border-right:1px #666666 dashed;
+				}
+				.cellDashedTopLeft {
+				border-top:1px #666666 dashed;
+				border-left:1px #666666 dashed;
+				}
+				.cellDashedBottomRight {
+				border-bottom:1px #666666 dashed;
+				border-right:1px #666666 dashed;
+				}
+				.cellDashedBottomLeft {
+				border-bottom:1px #666666 dashed;
+				border-left:1px #666666 dashed;
+				}
+				.cellDashedTop {
+				border-top:1px #666666 dashed;
+				}
+				.cellDashedRight {
+				border-right:1px #666666 dashed;
+				}
+				.cellDashedBottom {
+				border-bottom:1px #666666 dashed;
+				}
+				.cellDashedLeft {
+				border-left:1px #666666 dashed;
+				}
+				.cellHeader {
+				background-color:#CCCCCC;
+				border-top:1px #000000 solid;
+				border-right:1px #000000 solid;
+				border-bottom:1px #000000 solid;
+				padding:2px;
+				text-align:center;
+				text-transform:capitalize;
+				text-align:center;
+				font-family:helvetica;
+				font-weight:bold;
+				font-size:8pt;
+				}
+				.cellHeaderVertBT {
+				background-color:#CCCCCC;
+				border-top:1px #000000 solid;
+				border-right:1px #000000 solid;
+				border-bottom:1px #000000 solid;
+				border-left:1px #000000 solid;
+				padding:2px;
+				writing-mode:tb-rl;filter: flipv fliph;
+				text-align:center;
+				text-transform:capitalize;
+				text-align:center;
+				font-family:helvetica;
+				font-weight:bold;
+				font-size:8pt;
+				}
+				.cellHeaderVertTB {
+				background-color:#CCCCCC;
+				border-top:1px #000000 solid;
+				border-right:1px #000000 solid;
+				border-bottom:1px #000000 solid;
+				border-left:1px #000000 solid;
+				padding:2px;
+				writing-mode:tb-rl;filter: flipv flipv;
+				text-align:center;
+				text-transform:capitalize;
+				text-align:center;
+				font-family:helvetica;
+				font-weight:bold;
+				font-size:8pt;
+				}
+			</style>
+			<body topmargin="50" leftmargin="50">
+				<table width="100%">
+					<tr>
+						<td align="left" width="50%">
+							<div style="margin-bottom: 12px;">
+								<img src="../images/ista-_logo.png" style="height: 25px;"/>
+							</div>
+						</td>
+						<td align="right" width="50%">
+							<div class="print_button_wrapper">
+								<!--
+								<img id="print_button" src="../images/Print.svg" onclick="printReport(window);"/>
+								<img src="https://arastest12.ista.net/PLMTest12/Client/X-salt=16_12.0.0.15974-X/Images/ExportToExcel.svg" onClick="exportTableToExcel(); return false ;" style="height: 29px;"/>
+								<a href="#" onclick="printReport(window); return false;" onClick="exportTableToExcel(); return false ;">Print</a>
+								-->
+							</div>
+						</td>
+					</tr>
+				</table>
+				<div class="table_wrapper">
+					<div class="report_name">
+						Bill of Materials Report
+					</div>
+					<div class="report_generation_time"/>
+					<table border="0" cellspacing="0" cellpadding="0" id="tblData2" style="text-align: center; font-size: 11px;">
+						                                                <br/>
+						<tr>
+							<b>Root Item:  </b>
+							  <xsl:value-of select="Result/Item[@alias='Part']/item_number"/>
+							<br/>
+							 <b>Name:  </b>
+							 <xsl:value-of select="Result/Item[@alias='Part']/name"/>
+							<br/>
+							 <b>Major Revision:  </b>
+							 <xsl:value-of select="Result/Item[@alias='Part']/major_rev"/>
+							<br/>
+							 <b>Minor Revision:  </b>
+							 <xsl:value-of select="Result/Item[@alias='Part']/minor_rev"/>
+							<br/>
+							<b>State:  </b>
+							 <xsl:value-of select="Result/Item[@alias='Part']/state"/>
+						</tr>
+						 <br/>
+						 <br/>
+						<tr>
+							<th colspan="{$MaxDepth + 1}" style="text-align: center; font-size: 11px;">BOM Level</th>
+							<th style="text-align: center; font-size: 11px;">Part Number</th>
+							<th style="text-align: center; font-size: 11px;">Name</th>
+							<th style="text-align: center; font-size: 11px;">Qty</th>
+							 <th style="text-align: center; font-size: 11px;">IQC</th>
+							<th style="text-align: center; font-size: 11px;">Designator</th>
+							<th style="text-align: center; font-size: 11px;">Rev</th>
+							<th style="text-align: center; font-size: 11px;">Minor Rev</th>
+							<th style="text-align: center; font-size: 11px;">State</th>
+							<th style="text-align: center; font-size: 11px;">Package</th>
+							<th style="text-align: center; font-size: 11px;">Alternates</th>
+							<th style="text-align: center; font-size: 11px;">Substitutes</th>
+							<th style="text-align: center; font-size: 11px;">AML Status</th>
+							<th style="text-align: center; font-size: 11px;">Mfr.</th>
+							<th style="text-align: center; font-size: 11px;">Mfr. Part</th>
+						</tr>
+						<xsl:call-template name="rootItems"/>
+					</table>
+				</div>
+			</body>
+			<script>
+				 function exportTableToExcel(){
+				    var downloadLink;
+				    var dataType = 'application/vnd.ms-excel';
+				    var tableSelect = document.getElementById('tblData2');
+				    var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+				    filename = 'BOM.xls';
+				    downloadLink = document.createElement('a');
+				    document.body.appendChild(downloadLink);
+				    if(navigator.msSaveOrOpenBlob){
+				        var blob = new Blob(['\ufeff', tableHTML], {
+				            type: dataType
+				        });
+				        navigator.msSaveOrOpenBlob( blob, filename);
+				    }else{
+				        downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+				        downloadLink.download = filename;
+				        downloadLink.click();
+				    }
+				}
+				function loadScript(url)
+				{
+				const loadedJS = document.createElement('script');
+				loadedJS.src = url;
+				document.getElementsByTagName('head')[0].appendChild(loadedJS);
+				}
+				function loadStyle(url)
+				{
+				const link = document.createElement('link');
+				link.setAttribute('rel', 'stylesheet');
+				link.setAttribute('href', url);
+				document.getElementsByTagName('head')[0].appendChild(link)
+				}
+				loadScript(parent.aras.getBaseURL('/javascript/PopupMenu.js'));
+				loadScript(parent.aras.getBaseURL('/Solutions/PLM/javascript/report.js'));
+				loadStyle(parent.aras.getBaseURL('/Solutions/PLM/styles/report.css'));
+			</script>
+		</html>
+	</xsl:template>
+	<xsl:template name="rootItems">
+		<xsl:apply-templates select="/Result/Item[@alias='Part']"/>
+	</xsl:template>
+	<xsl:template name="IndentureLevel">
+		<xsl:param name="currentDepth" select="0"/>
+		<xsl:param name="rowCount"/>
+		<xsl:if test="$currentDepth = 0">
+			<td rowspan="{$rowCount}" width="20px" style="padding: 5px 0px 5px 10px">
+				<xsl:if test="depth=$currentDepth">
+					<xsl:value-of select="depth"/>
+				</xsl:if>
+			</td>
+		</xsl:if>
+		<xsl:if test="$currentDepth != 0">
+			<td rowspan="{$rowCount}" width="20px" style="padding: 5px 0" align="center">
+				<xsl:if test="depth=$currentDepth">
+					<xsl:value-of select="depth"/>
+				</xsl:if>
+			</td>
+		</xsl:if>
+		<xsl:if test="not($currentDepth = $MaxDepth)">
+			<xsl:call-template name="IndentureLevel">
+				<xsl:with-param name="currentDepth" select="$currentDepth + 1"/>
+				<xsl:with-param name="rowCount" select="$rowCount"/>
+			</xsl:call-template>
+		</xsl:if>
+	</xsl:template>
+	<xsl:template match="/Result/Item[@alias='Part']">
+		<xsl:variable name="rowCount">
+			<xsl:choose>
+				<xsl:when test="count(Relationships/Item[@alias='Part AML'])=0">1</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="count(Relationships/Item[@alias='Part AML'])"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<tr style="page-break-inside: avoid;">
+			<xsl:call-template name="IndentureLevel">
+				<xsl:with-param name="rowCount" select="$rowCount"/>
+			</xsl:call-template>
+			<td style="word-wrap: break-word; border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px">
+				<xsl:value-of select="item_number"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px">
+				<xsl:value-of select="name"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="100px" align="center">
+				<xsl:choose>
+					<xsl:when test="depth=0">1</xsl:when>
+					<xsl:when test="depth!=0 and (quantity)=''">1</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="quantity"/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="100px">
+				<xsl:choose>
+					<xsl:when test="iqc=1">Yes</xsl:when>
+					<xsl:otherwise/>
+				</xsl:choose>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="100px">
+				<xsl:value-of select="reference_designator"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="100px" align="center">
+				<xsl:value-of select="major_rev"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px" align="center">
+				<xsl:value-of select="minor_rev"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="100px" align="center">
+				<xsl:value-of select="state"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px">
+				<xsl:value-of select="ist_package"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px">
+				<xsl:value-of select="alternates"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" rowspan="{$rowCount}" width="120px">
+				<xsl:value-of select="substitutes"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" width="100px">
+				<xsl:value-of select="Relationships/Item[@alias='Part AML'][1]/state"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" width="100px">
+				<xsl:value-of select="Relationships/Item[@alias='Part AML'][1]/Relationships/Item[@alias='Manufacturer Part']/manufacturer/@keyed_name"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd; border-right: 1px solid #ddd; text-align: center" width="120px">
+				<xsl:value-of select="Relationships/Item[@alias='Part AML'][1]/Relationships/Item[@alias='Manufacturer Part']/item_number"/>
+			</td>
+		</tr>
+		<xsl:apply-templates select="Relationships/Item[@alias='Part AML'][position()!=1]"/>
+	</xsl:template>
+	<xsl:template match="Item[@alias='Part AML']">
+		<tr style="page-break-inside: avoid;">
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" width="100px">
+				<xsl:value-of select="state"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd;text-align: center" width="120px">
+				<xsl:value-of select="Relationships/Item[@alias='Manufacturer Part']/manufacturer/@keyed_name"/>
+			</td>
+			<td style="word-wrap: break-word;border-left: 1px solid #ddd; border-right: 1px solid #ddd; text-align: center" width="120px">
+				<xsl:value-of select="Relationships/Item[@alias='Manufacturer Part']/item_number"/>
+			</td>
+		</tr>
+	</xsl:template>
+</xsl:stylesheet>

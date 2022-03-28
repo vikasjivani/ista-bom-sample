@@ -1,0 +1,1472 @@
+/* Fetch BOM Item with query definition */
+const report_query = '<Item type="Method" action="IST_ExecuteBOMReportMethod2">' +
+	'<query_definition>5AC0165C53204B7AA9B908D202CAD6F8</query_definition>' +
+	'<part_id>' + inDom.getAttribute('id') + '</part_id>' +
+'</Item>';
+
+var bomRow = "";
+var subParts = "";
+var substiteRow = "";
+var substiteRowExcel = "";
+var partWithSubstitute = [];
+var altParts = "";
+var altPartRow = "";
+var altRowExcel = "";
+var cadRow = "";
+var cadRowExcel = "";
+var cadItems = [];
+var documentItems = [];
+var releasedDocumentItems = [];
+var requirmentDocumentItems = [];
+var allDocRelationItems = [];
+
+var rootItem = "";
+var rootName = "";
+var rootMajorRev = "";
+var rootMinorRev = "";
+var rootState = "";
+
+/* Fetch Report element to use existing report design for BOM table */
+let report = this.newItem('Report', 'get');
+report.setProperty('select', 'xsl_stylesheet');   
+report.setID('D9B7E03259CF4AC0BDF221AA4F6CBEC7'); //0B593D00F2304639AEFE7ACDFB78C5F3
+report = report.apply();
+
+let query = this.newItem();
+query.loadAML(report_query);
+query = query.apply();
+var coun =  query.getItemCount();
+
+    /* Prepare BOM table for import to Excel */
+    var itemNum = "";
+    for(var i=0; i < coun ; i++ ){
+        var part = query.getItemByIndex(i);
+        var partNumber =  part.getProperty("item_number");
+        
+        var depth = part.getProperty("depth","");  
+        var item_number = part.getProperty("item_number","");  
+        var item_name = part.getProperty("name","");
+        var item_qty = part.getProperty("quantity","");
+        var item_iqc = part.getProperty("iqc","");
+        var item_ref = part.getProperty("reference_designator","");
+        var item_rev = part.getProperty("major_rev","");
+        var item_minor_rev = part.getProperty("minor_rev","");
+        var item_state = part.getProperty("state","");
+        var item_pack = part.getProperty("ist_package","");
+        var item_alt = part.getProperty("alternates","");
+        var item_sub = part.getProperty("substitutes","");
+        var aml_state = part.getProperty("Relationships/Item[@alias='Part AML'][1]/state","");
+        var aml_manufacture = part.getProperty("Relationships/Item[@alias='Part AML'][1]/Relationships/Item[@alias='Manufacturer Part']/manufacturer","");
+        var aml_number = part.getProperty("Relationships/Item[@alias='Part AML'][1]/Relationships/Item[@alias='Manufacturer Part']/item_number","");
+        var cad_design_root = part.getProperty("Relationships/Item[@alias='Part CAD'][1]/Relationships/Item[@alias='CAD']/item_number","");
+        var cad_design_bom = part.getProperty("Relationships/Item[@alias='Part CAD_1'][1]/Relationships/Item[@alias='CAD_1']/item_number","");
+        var document_root = part.getProperty("Relationships/Item[@alias='Part Document'][1]/Relationships/Item[@alias='Document']/item_number","");
+        var document_bom = part.getProperty("Relationships/Item[@alias='Part Document_1'][1]/Relationships/Item[@alias='Document_1']/item_number","");
+        var released_doc_root = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC'][1]/Relationships/Item[@alias='Document_2']/item_number","");
+        var released_doc_bom = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1'][1]/Relationships/Item[@alias='Document_3']/item_number","");
+        var requirment_doc_root = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document'][1]/Relationships/Item[@alias='Document_4']/item_number","");
+        var requirment_doc_bom = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1'][1]/Relationships/Item[@alias='Document_5']/item_number","");
+        
+         
+        if(item_iqc == 1){
+            item_iqc = "Yes";
+        }else{
+            item_iqc = "";
+        }    
+        
+      if(depth == 0){
+        rootItem = item_number;
+        rootName = item_name;
+        rootMajorRev = item_rev;
+        rootMinorRev = item_minor_rev;
+        rootState = item_state;  
+      }
+      
+      if(item_sub !== ""){
+            subParts = subParts + item_sub + ",";
+            substituteTableCreate(item_sub,item_number,this);
+        }
+          
+        if(item_alt !== ""){
+            altParts = altParts + item_alt + ",";
+            alternateTableCreate(item_alt,item_number,this);
+        }
+        
+        var amlFields = []; 
+        if(aml_state != ""){
+            
+            amlFields =  amldata(part,this);
+        }
+        
+        
+        if(cad_design_root != ""){
+            
+        //   return part.getProperty("Relationships/Item[@alias='Part CAD'][1]/Relationships/Item[@alias='CAD']/Relationships/Item[@alias='File']/filename","");
+            
+            var cadFlagRoort = 1;
+            cadItems.forEach(partNum => {
+                if(partNum == item_number){
+                    cadFlagRoort = 0;
+                }
+            });
+            
+            if(cadFlagRoort == 1){
+                cadItems.push(item_number);
+                makeCADTable(part,item_number,this);
+            }
+        }
+        
+        if(cad_design_bom != ""){
+            
+            // return part.getProperty("Relationships/Item[@alias='Part CAD_1'][1]/Relationships/Item[@alias='CAD_1']/Relationships/Item[@alias='File_1']/filename","");
+            
+            var cadFlagRoort = 1;
+            cadItems.forEach(partNum => {
+                if(partNum == item_number){
+                    cadFlagRoort = 0;
+                }
+            });
+            
+            if(cadFlagRoort == 1){
+                cadItems.push(item_number);
+                makeCADTableBOM(part,item_number,this);
+            }
+            
+        }
+        // Document Realationships part
+        if(document_root != ""){
+            
+            var docFlagRoot = 1;
+            documentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                documentItems.push(item_number);
+                makeDocumentTable(part,item_number,this);
+            }
+            
+        }
+        
+         if(document_bom != ""){
+            
+            var docFlagRoot = 1;
+            documentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                documentItems.push(item_number);
+                makeDocumentTableBOM(part,item_number,this);
+            }
+            
+        }
+        
+        if(released_doc_root != ""){
+            var RelDocFlagRoot = 1;
+            releasedDocumentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    RelDocFlagRoot = 0;
+                }
+            });
+            
+            if(RelDocFlagRoot == 1){
+                releasedDocumentItems.push(item_number);
+                makeRealsedDocumentTable(part,item_number,this);
+            }
+        }
+        
+        if(released_doc_bom != ""){
+            
+            var RelDocFlagRoot = 1;
+            releasedDocumentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    RelDocFlagRoot = 0;
+                }
+            });
+            
+            if(RelDocFlagRoot == 1){
+             releasedDocumentItems.push(item_number);
+             makeRealsedDocumentTableBOM(part,item_number,this);
+            }
+        }
+        
+        if(requirment_doc_root != ""){
+            var ReqDocFlagRoot = 1;
+            requirmentDocumentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    ReqDocFlagRoot = 0;
+                }
+            });
+            
+            if(ReqDocFlagRoot == 1){
+                requirmentDocumentItems.push(item_number);
+                makeRequirmentDocumentTable(part,item_number,this);
+            }
+        }
+        
+        if(requirment_doc_bom != ""){
+            
+            var ReqDocFlagRoot = 1;
+            requirmentDocumentItems.forEach(partNum => {
+                if(partNum == item_number){
+                    ReqDocFlagRoot = 0;
+                }
+            });
+            
+            if(ReqDocFlagRoot == 1){
+                requirmentDocumentItems.push(item_number);
+                makeRequirmentDocumentTableBOM(part,item_number,this);
+            }
+        } // Documents All relationships part completed.
+        
+        var aml_state_str = amlFields[0] == undefined ? "" : amlFields[0];
+        var aml_manufacture_str = amlFields[1] == undefined ? "" : amlFields[1];
+        var aml_number_str = amlFields[2] == undefined ? "" : amlFields[2];
+        
+        var depthSpace = bomDepth(depth);
+        
+ var singleRowBom = 
+                    "<tr>" +
+                    "<td style='text-align: left; padding:2px;'>"+depthSpace+""+depth+"</td>" +
+                    "<td>"+item_number+"</td>" +
+                    "<td>"+item_name+"</td>" +
+                    "<td>"+item_qty+"</td>" +
+                    "<td>"+item_iqc+"</td>" +
+                    "<td>"+item_ref+"</td>" +
+                    "<td>"+item_rev+"</td>" +
+                    "<td>"+item_minor_rev+"</td>" +
+                    "<td>"+item_state+"</td>" +
+                    "<td>"+item_pack+"</td>" +
+                    "<td>"+item_alt+"</td>" +
+                    "<td>"+item_sub+"</td>" +
+                    "<td>"+aml_state_str+"</td>" +
+                    "<td>"+aml_manufacture_str+"</td>" +
+                    "<td>"+aml_number_str+"</td>" +
+                    "</tr>";
+            
+    
+       bomRow = bomRow + singleRowBom;
+       itemNum = itemNum + "<item_number>"+partNumber+"</item_number>"; // use in or condition for BOM Item 
+    }
+          
+
+/* Below table use for Excel import it is hiden in pdf template */        
+var bomTable =  "<div style='position: static;'>" +
+                    "<table  id='bomTable' style='display:none;'>" +
+                        
+                        "<caption>Bill of Materials</caption>"+
+                        
+                        "<tr>" +
+                            "<th>BOM Level</th>" +
+                            "<th>Part Number</th>" +
+                            "<th>Name</th>" +
+                            "<th>Qty</th>" +
+                            "<th>IQC</th>" +
+                            "<th>Designator</th>" +
+                            "<th>Rev</th>" +
+                            "<th>Minor Rev</th>" +
+                            "<th>State</th>" +
+                            "<th>Package</th>" +
+                            "<th>Alternates</th>" +
+                            "<th>Substitutes</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        bomRow +
+                    "<table>"+
+                "</div>";
+        
+        
+        // return bomTable;
+        
+
+/* This function use for set CAD data from root item */
+function makeCADTable(part,parent_part,scop){
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var cNumber = part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/item_number","");
+        var cType = part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/classification","");
+        
+        if(cNumber != ""){
+            
+         if(cType == "Drawing"){
+            
+              var  cad_number =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/item_number","");
+              var  cad_rev =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/major_rev","");
+              var  cad_name =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/name","");
+              var  cad_type =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/classification","");
+              var  cad_state =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/state","");
+              var  cad_description =  part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/description","");
+
+            //   var  cad_design = part.getProperty("Relationships/Item[@alias='Part CAD']["+i+"]/Relationships/Item[@alias='CAD']/Relationships/Item[@alias='File']/filename","");
+            
+            //   if(cad_design != ""){
+            //       cad_design = cad_design.split(".")[0];
+            //     }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_name+"</td>" +
+                // "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_design+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_state+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+cad_number+"</td>" +
+                    "<td style='text-align: left;'>"+cad_rev+"</td>" +
+                    "<td style='text-align: left;'>"+cad_name+"</td>" +
+                    // "<td style='text-align: left;'>"+cad_design+"</td>" +
+                    "<td style='text-align: left;'>"+cad_description+"</td>" +
+                    "<td style='text-align: left;'>"+cad_state+"</td>" +
+                    "<td style='text-align: left;'>"+cad_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+         }
+        }else{
+            break;
+        }
+    }
+}   
+
+/* This function use for set CAD data from BOM item */
+function makeCADTableBOM(part,parent_part,scop){
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var cNumber = part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/item_number","");
+        var cType = part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/classification","");
+        
+        if(cNumber != ""){
+            if(cType == "Drawing"){
+                
+              var  cad_number =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/item_number","");
+              var  cad_rev =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/major_rev","");
+              var  cad_name =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/name","");
+              var  cad_type =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/classification","");
+              var  cad_state =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/state","");
+              var  cad_description =  part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/description","");
+              
+            //   var cad_design = part.getProperty("Relationships/Item[@alias='Part CAD_1']["+i+"]/Relationships/Item[@alias='CAD_1']/Relationships/Item[@alias='File_1']/filename","");
+            
+            //     if(cad_design != ""){
+            //       cad_design = cad_design.split(".")[0];
+            //     }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_name+"</td>" +
+                // "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_design+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_state+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+cad_state+"</td>" +
+                "</tr>";    
+                
+            
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+cad_number+"</td>" +
+                    "<td style='text-align: left;'>"+cad_rev+"</td>" +
+                    "<td style='text-align: left;'>"+cad_name+"</td>" +
+                    // "<td style='text-align: left;'>"+cad_design+"</td>" +
+                    "<td style='text-align: left;'>"+cad_description+"</td>" +
+                    "<td style='text-align: left;'>"+cad_state+"</td>" +
+                    "<td style='text-align: left;'>"+cad_state+"</td>" +
+                "</tr>";
+                  
+              cadRow = cadRow + cadSingleRow;
+              cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            }
+        }else{
+            break;
+        }
+    }
+}  
+        
+        
+function makeDocumentTable(part,parent_part,scop){
+        for(var i = 1 ; i <= 2000 ; i++){
+        
+        var docNumber = part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/item_number","");
+        var docType = part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/classification","");
+        
+        if(docNumber != ""){
+            
+         if(docType == "Product Document/Component Specifications"){
+             
+             
+            var partDocNum = parent_part +"_"+ docNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+            
+             
+            
+              var  doc_number =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/item_number","");
+              var  doc_rev =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/major_rev","");
+              var  doc_name =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/name","");
+              var  doc_type =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/classification","");
+              var  doc_state =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/state","");
+              var  doc_description =  part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/description","");
+              
+              
+            
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='Part Document']["+i+"]/Relationships/Item[@alias='Document']/Relationships/Item[@alias='Document File'][1]/Relationships/Item[@alias='File_2']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"Part Document",i,"Document","Document File","File_2");
+                }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                     "<td style='text-align: left;'>"+doc_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            
+            }
+         }
+        }else{
+            break;
+        }
+    }
+}       
+
+function makeDocumentTableBOM(part,parent_part,scop){
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var docNumber = part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/item_number","");
+        var docType = part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/classification","");
+        
+        if(docNumber != ""){
+            if(docType == "Product Document/Component Specifications"){
+                
+            var partDocNum = parent_part +"_"+ docNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+                
+              var  doc_number =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/item_number","");
+              var  doc_rev =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/major_rev","");
+              var  doc_name =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/name","");
+              var  doc_type =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/classification","");
+              var  doc_state =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/state","");
+              var  doc_description =  part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/description","");
+              
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='Part Document_1']["+i+"]/Relationships/Item[@alias='Document_1']/Relationships/Item[@alias='Document File_1'][1]/Relationships/Item[@alias='File_3']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"Part Document_1",i,"Document_1","Document File_1","File_3");
+               }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_state+"</td>" +
+                "</tr>";    
+                
+            
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                    "<td style='text-align: left;'>"+doc_state+"</td>" +
+                "</tr>";
+                  
+              cadRow = cadRow + cadSingleRow;
+              cadRowExcel = cadRowExcel + cadSingleRowExcel;
+             }
+            }
+        }else{
+            break;
+        }
+    }
+}  
+
+
+function makeRealsedDocumentTable(part,parent_part,scop){
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var relDocNumber = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/item_number","");
+        var relDocType = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/classification","");
+        
+        if(relDocNumber != ""){
+            
+         if(relDocType == "Product Document/Component Specifications"){
+             
+             
+              var partDocNum = parent_part +"_"+ relDocNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+            
+              var  rel_doc_number =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/item_number","");
+              var  rel_doc_rev =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/major_rev","");
+              var  rel_doc_name =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/name","");
+              var  rel_doc_type =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/classification","");
+              var  rel_doc_state =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/state","");
+              var  rel_doc_description =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/description","");
+
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC']["+i+"]/Relationships/Item[@alias='Document_2']/Relationships/Item[@alias='Document File_2'][1]/Relationships/Item[@alias='File_4']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"IST_Part_Release_DOC",i,"Document_2","Document File_2","File_4");
+               }
+            
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            }
+         }
+        }else{
+            break;
+        }
+    }
+}
+
+function makeRealsedDocumentTableBOM(part,parent_part,scop){
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var relDocNumber = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/item_number","");
+        var relDocType = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/classification","");
+        
+        if(relDocNumber != ""){
+            
+         if(relDocType == "Product Document/Component Specifications"){
+             
+              var partDocNum = parent_part +"_"+ relDocNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+            
+              var  rel_doc_number =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/item_number","");
+              var  rel_doc_rev =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/major_rev","");
+              var  rel_doc_name =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/name","");
+              var  rel_doc_type =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/classification","");
+              var  rel_doc_state =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/state","");
+              var  rel_doc_description =  part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/description","");
+
+            
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='IST_Part_Release_DOC_1']["+i+"]/Relationships/Item[@alias='Document_3']/Relationships/Item[@alias='Document File_3'][1]/Relationships/Item[@alias='File_5']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"IST_Part_Release_DOC_1",i,"Document_3","Document File_3","File_5");
+               }
+            
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+rel_doc_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                    "<td style='text-align: left;'>"+rel_doc_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            }
+         }
+        }else{
+            break;
+        }
+    }
+}
+
+function makeRequirmentDocumentTable(part,parent_part,scop){ 
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var reqDocNumber = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/item_number","");
+        var reqDocType = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/classification","");
+        
+        if(reqDocNumber != ""){
+            
+         if(reqDocType == "Product Document/Component Specifications"){
+             
+             
+            var partDocNum = parent_part +"_"+ reqDocNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+            
+              var  req_doc_number =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/item_number","");
+              var  req_doc_rev =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/major_rev","");
+              var  req_doc_name =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/name","");
+              var  req_doc_type =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/classification","");
+              var  req_doc_state =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/state","");
+              var  req_doc_description =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/description","");
+
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document']["+i+"]/Relationships/Item[@alias='Document_4']/Relationships/Item[@alias='Document File_4'][1]/Relationships/Item[@alias='File_6']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"IST_Part_Requirment_Document",i,"Document_4","Document File_4","File_6");
+               }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            }
+         }
+        }else{
+            break;
+        }
+    }
+}
+
+function makeRequirmentDocumentTableBOM(part,parent_part,scop){ 
+    for(var i = 1 ; i <= 2000 ; i++){
+        
+        var reqDocNumber = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/item_number","");
+        var reqDocType = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/classification","");
+        
+        if(reqDocNumber != ""){
+            
+         if(reqDocType == "Product Document/Component Specifications"){
+             
+              var partDocNum = parent_part +"_"+ reqDocNumber;
+            
+            var docFlagRoot = 1;
+            allDocRelationItems.forEach(num => {
+                if(num == partDocNum){
+                    docFlagRoot = 0;
+                }
+            });
+            
+            if(docFlagRoot == 1){
+                allDocRelationItems.push(partDocNum);
+            
+              var  req_doc_number =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/item_number","");
+              var  req_doc_rev =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/major_rev","");
+              var  req_doc_name =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/name","");
+              var  req_doc_type =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/classification","");
+              var  req_doc_state =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/state","");
+              var  req_doc_description =  part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/description","");
+
+              var doc_file_relation = part.getProperty("Relationships/Item[@alias='IST_Part_Requirment_Document_1']["+i+"]/Relationships/Item[@alias='Document_5']/Relationships/Item[@alias='Document File_4'][1]/Relationships/Item[@alias='File_7']/id","");
+              
+              var doc_File_name = "";
+              if(doc_file_relation != ""){
+                   doc_File_name = getDocFileName(part,"IST_Part_Requirment_Document_1",i,"Document_5","Document File_5","File_7");
+               }
+            
+              var cadSingleRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parent_part+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_number+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_rev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_description+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+doc_File_name+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+req_doc_state+"</td>" +
+                "</tr>";    
+                  
+                
+            var cadSingleRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parent_part+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_number+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_rev+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_name+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_description+"</td>" +
+                    "<td style='text-align: left;'>"+doc_File_name+"</td>" +
+                    "<td style='text-align: left;'>"+req_doc_state+"</td>" +
+                "</tr>";
+                
+            cadRow = cadRow + cadSingleRow;
+            cadRowExcel = cadRowExcel + cadSingleRowExcel;
+            }
+         }
+        }else{
+            break;
+        }
+    }
+}
+        
+function getDocFileName(part,part_doc_rel,parent_doc_num,doc_rel,doc_file_rel,file_obj){
+    
+    var doc_name = ""; 
+    
+    for(var i = 1 ; i <= 2000 ; i++){
+        var doc_relation_file_name = part.getProperty("Relationships/Item[@alias='"+part_doc_rel+"']["+parent_doc_num+"]/Relationships/Item[@alias='"+doc_rel+"']/Relationships/Item[@alias='"+doc_file_rel+"']["+i+"]/Relationships/Item[@alias='"+file_obj+"']/filename","");
+        
+        if(doc_relation_file_name != ""){
+            doc_name = doc_name + doc_relation_file_name + ",";
+        }else{
+            break;
+        }
+    }
+    
+    doc_name = doc_name.substring(0, doc_name.length - 1);
+    
+    return doc_name;
+}
+
+
+/* This function use to arrange BOM level in first colum of BOM table*/        
+function bomDepth(depth){
+    
+    var depthSpace = "";
+    for(var i = 0 ; i < depth ;i ++){
+        depthSpace = depthSpace + "&nbsp;&nbsp;&nbsp;";  
+    }
+    return depthSpace;
+}
+
+/* This function use for set AML data to BOM table during Excel import */
+function amldata(part,scop){
+    var amlFields = []; 
+    var aml_state_str = "";
+    var aml_manufacture_str = "";
+    var aml_number_str = "";
+    
+    for(var i = 1 ; i <= 10 ; i++){
+        if(part.getProperty("Relationships/Item[@alias='Part AML']["+i+"]/state","") != ""){
+          var  aml_state =  part.getProperty("Relationships/Item[@alias='Part AML']["+i+"]/state","");
+            aml_manufacture = part.getProperty("Relationships/Item[@alias='Part AML']["+i+"]/Relationships/Item[@alias='Manufacturer Part']/manufacturer","");
+            aml_number = part.getProperty("Relationships/Item[@alias='Part AML']["+i+"]/Relationships/Item[@alias='Manufacturer Part']/item_number","");   
+   
+            aml_state_str = aml_state_str + aml_state + ",<hr>";
+            // aml_manufacture_str = aml_manufacture_str + aml_manufacture  + ", ";
+            aml_number_str = aml_number_str + aml_number  + ",<br/>";
+            
+            
+            var  manu_name = "";
+            if(aml_manufacture != ""){
+                var c1 = scop.newItem("Manufacturer","get");
+                c1.setProperty("id",aml_manufacture);  
+                var manuFact =  c1.apply();
+                manu_name  = manuFact.getProperty("name","");
+                
+                aml_manufacture_str = aml_manufacture_str + manu_name + ",<br/>";
+            }
+            
+        }else{
+            break;
+        }
+    }
+    
+    amlFields.push(aml_state_str);
+    amlFields.push(aml_manufacture_str);
+    amlFields.push(aml_number_str);
+    return amlFields;
+    }
+
+/* 
+* This function prepare Alternate table 
+* Format: pdf & Excel
+*/    
+function alternateTableCreate(altParts,parentPart,scop){
+    var altList = altParts.split(",");
+    for(var i = 0 ; i < altList.length ; i++){
+        var altPartData = scop.newItem('Part','get');
+        altPartData.setProperty('item_number',altList[i].trim());
+        altPartData = altPartData.apply();
+       
+        altPartData.fetchRelationships("Part AML");
+       
+        var altAmlItem = altPartData.getRelationships("Part AML");
+         
+        var altAmlCount =  altAmlItem.getItemCount();
+        
+       
+        
+        var altAml = [];
+        var altAMLState = "";
+        var altAmlManu = "";
+        var altAmlNum = "";
+        var altAMLStateExcel = "";
+        var altAmlManuExcel = "";
+        var altAmlNumExcel = "";
+        if(altAmlCount > 0){
+            // return altAmlCount;
+            altAml = altAmlData(altAmlItem,scop); 
+            altAMLState = altAml[0];
+            altAmlManu = altAml[1];
+            altAmlNum = altAml[2];
+            altAMLStateExcel = altAml[3];
+            altAmlManuExcel = altAml[4];
+            altAmlNumExcel = altAml[5];
+            
+        }
+        
+        var parentPartNum = altList[i].trim();
+        var altPartNum = altPartData.getProperty("item_number","");
+        var altPartName = altPartData.getProperty("name","");
+        var altPartRev = altPartData.getProperty("major_rev","");
+        var altPartMinorRev = altPartData.getProperty("minor_rev","");
+        var altPartState = altPartData.getProperty("state","");
+       
+      
+       
+        var singleAltRow = 
+                "<tr>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parentPart+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+altPartNum+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+altPartName+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:90px'>"+altPartRev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:90px'>"+altPartMinorRev+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+altPartState+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px;padding-left:0;padding-right:0;'>"+altAMLState+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px;padding-left:0;padding-right:0;'>"+altAmlManu+"</td>" +
+                "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px;padding-left:0;padding-right:0;'>"+altAmlNum+"</td>" +
+                "</tr>";
+                
+        var singleAltRowExcel = 
+                "<tr>" +
+                    "<td style='text-align: left;'>"+parentPart+"</td>" +
+                    "<td style='text-align: left;'>"+altPartNum+"</td>" +
+                    "<td style='text-align: left;'>"+altPartName+"</td>" +
+                    "<td style='text-align: left;'>"+altPartRev+"</td>" +
+                     "<td style='text-align: left;'>"+altPartMinorRev+"</td>" +
+                    "<td style='text-align: left;'>"+altPartState+"</td>" +
+                    "<td style='text-align: left;'>"+altAMLStateExcel+"</td>" +
+                    "<td style='text-align: left;'>"+altAmlManuExcel+"</td>" +
+                    "<td style='text-align: left;'>"+altAmlNumExcel+"</td>" +
+                "</tr>";
+                 
+                altPartRow = altPartRow + singleAltRow;
+                altRowExcel = altRowExcel + singleAltRowExcel;
+                
+        }
+
+}
+
+
+/* 
+* This function prepare Substitute table
+* Format: PDF & Excel
+*/    
+function substituteTableCreate(subParts,parentPart,scop){
+    var subList = subParts.split(",");
+    for(var i = 0 ; i < subList.length ; i++){
+        var subPartData = scop.newItem('Part','get');
+        subPartData.setProperty('item_number',subList[i].trim());
+        subPartData = subPartData.apply();
+       
+        subPartData.fetchRelationships("Part AML");
+       
+        var subAmlItem = subPartData.getRelationships("Part AML");
+         
+        var subAmlCount =  subAmlItem.getItemCount();
+        
+        
+        var subAml = [];
+        var subAMLState = "";
+        var subAmlManu = "";
+        var subAmlNum = "";
+        var subAMLStateExcel = "";
+        var subAmlManuExcel = "";
+        var subAmlNumExcel = "";
+        if(subAmlCount > 0){
+            subAml = altAmlData(subAmlItem,scop); 
+            subAMLState = subAml[0];
+            subAmlManu = subAml[1];
+            subAmlNum = subAml[2];
+            subAMLStateExcel = subAml[3];
+            subAmlManuExcel = subAml[4];
+            subAmlNumExcel = subAml[5];
+        }
+        
+        var parentPartNum = subList[i].trim();
+        var subPartNum = subPartData.getProperty("item_number","");
+        var subPartName = subPartData.getProperty("name","");
+        var subPartRev = subPartData.getProperty("major_rev","");
+        var subPartMinorRev = subPartData.getProperty("major_rev","");
+        var subPartState = subPartData.getProperty("state","");
+       
+      
+        var singleRow = 
+            "<tr>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+parentPart+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+subPartNum+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+subPartName+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:90px'>"+subPartRev+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:90px'>"+subPartMinorRev+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px'>"+subPartState+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px;padding-left:0;padding-right:0;'>"+subAMLState+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:100px;padding-left:0;padding-right:0;'>"+subAmlManu+"</td>" +
+            "<td style='word-wrap: break-word;border: 1px solid #ddd;text-align: center;width:120px;padding-left:0;padding-right:0;'>"+subAmlNum+"</td>" +
+            "</tr>";
+            
+            var singlrRowExcel = 
+            "<tr>" +
+                "<td style='text-align: left;'>"+parentPart+"</td>" +
+                "<td style='text-align: left;'>"+subPartNum+"</td>" +
+                "<td style='text-align: left;'>"+subPartName+"</td>" +
+                "<td style='text-align: left;'>"+subPartRev+"</td>" +
+                "<td style='text-align: left;'>"+subPartMinorRev+"</td>" +
+                "<td style='text-align: left;'>"+subPartState+"</td>" +
+                "<td style='text-align: left;'>"+subAMLStateExcel+"</td>" +
+                "<td style='text-align: left;'>"+subAmlManuExcel+"</td>" +
+                "<td style='text-align: left;'>"+subAmlNumExcel+"</td>" +
+            "</tr>";
+            
+            substiteRow = substiteRow + singleRow;
+            substiteRowExcel = substiteRowExcel + singlrRowExcel;
+                
+        }
+}
+
+
+/* This function use for prepare AML data for substitue & Alternate table*/
+function altAmlData(altAmlItem,scop){
+    var altAmlCount =  altAmlItem.getItemCount(); 
+    var altAmlstateStr = "";
+    var altManuStr = "";
+    var altManuNumStr = "";
+    var amlList = [];
+    var altAmlstateStrExcel = "";
+    var altManuNumExcel = "";
+    var altManuStrExcel = "";
+    
+    for(var i = 0 ; i < altAmlCount ; i++){
+         var altManuNumCell = "";
+         var altAmlstateCell = "";
+        var rel = altAmlItem.getItemByIndex(i);
+        var subItem = rel.getRelatedItem();
+        
+        var altAmlstate = rel.getProperty("state","");
+        var altManufecturer = subItem.getProperty("manufacturer","");
+        var altManuNum = subItem.getProperty("item_number","");
+        
+        altAmlstateStrExcel = altAmlstateStrExcel + altAmlstate + ",<br/>";
+        //  altManuStr = altManuStr + altManufecturer + ","; // below implement
+        altManuNumExcel = altManuNumExcel + altManuNum + ",<br/>";
+        
+        
+        if(i == altAmlCount-1 ){
+            altManuNumCell = 
+                "<tr><td style='table-layout: fixed;border-bottom: none;width: 100%;text-align: center;font-size: 11px;padding-left:0;padding-right:0;'>"+altManuNum+"</td></tr>";
+            altAmlstateCell = 
+                "<tr><td style='table-layout: fixed;border-bottom: none;width: 100%;text-align: center;font-size: 11px;padding-left:0;padding-right:0;'>"+altAmlstate+"</td></tr>";
+        }else{
+            altManuNumCell = 
+                "<tr><td>"+altManuNum+"</td></tr>";
+            altAmlstateCell = 
+                "<tr><td>"+altAmlstate+"</td></tr>";
+        }
+       
+        
+        altManuNumStr = altManuNumStr + altManuNumCell;
+        altAmlstateStr = altAmlstateStr + altAmlstateCell;
+        
+        if(altManufecturer != ""){
+            var c1 = scop.newItem("Manufacturer","get");
+            c1.setProperty("id",altManufecturer);  
+            var manuFact =  c1.apply();
+            manu_name  = manuFact.getProperty("name","");
+            
+            altManuStrExcel = altManuStrExcel + manu_name + ",<br/>";
+            if(i == altAmlCount-1 ){
+                manu_nameCell = 
+                "<tr><td style='table-layout: fixed;border-bottom: none;width: 100%;text-align: center;font-size: 11px;padding-left:0;padding-right:0;'>"+manu_name+"</td></tr>";
+            }else{
+                manu_nameCell = 
+                    "<tr><td>"+manu_name+"</td></tr>";
+            }
+                
+            altManuStr = altManuStr + manu_nameCell;
+                
+        }
+    }
+    
+    
+    var altAmlstateStrTable = "<table style='table-layout: fixed;width: 100%;text-align: center;font-size: 11px;'>" +
+    altAmlstateStr +
+    "</table>";
+    
+    var altManuStrTable = "<table style='table-layout: fixed;width: 100%;text-align: center;font-size: 11px;'>" +
+    altManuStr +
+    "</table>";
+    
+   
+    var altManuNumStrTable = "<table style='table-layout: fixed;width: 100%;text-align: center;font-size: 11px;'>" +
+    altManuNumStr +
+    "</table>";
+    
+
+    amlList.push(altAmlstateStrTable);
+    amlList.push(altManuStrTable);
+    amlList.push(altManuNumStrTable);
+    amlList.push(altAmlstateStrExcel);
+    amlList.push(altManuStrExcel);
+    amlList.push(altManuNumExcel);
+ 
+ return amlList;   
+}
+
+
+/* This section already existing for import BOM in pdf format */
+if (query.IsError()) {
+	aras.AlertError(query.getErrorString())
+}
+
+let results = query.dom.xml;
+let xsl_stylesheet = report.getProperty('xsl_stylesheet');
+if (xsl_stylesheet) {
+	const xslt_stylesheetDOM = aras.createXMLDocument();
+	xslt_stylesheetDOM.loadXML(xsl_stylesheet);
+
+	xsl_stylesheet = xslt_stylesheetDOM.xml;
+
+	const res = aras.createXMLDocument();
+	res.loadXML(results);
+
+	results = aras.applyXsltString(res, xsl_stylesheet);
+}
+
+
+var cadTable =  "<div style='position: static;'>" +
+                    "<table style='table-layout: fixed;border: 1px solid #ddd;border-collapse:collapse;width: 100%;text-align: center;font-size: 11px;'>" +
+
+                        "<caption style='text-align:left;border: 1px solid #ddd; font-weight: bold; font-size: 17px; padding-left:20px'><a style='text-decoration: none; color: inherit;'>Specifications</a></caption>"+
+                        
+                        "<tr>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Part Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Document Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Revision</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Document Name</th>" +
+                            // "<th style='text-align:center;font-size: 11px;width:80px'>Drawing File Name</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Description</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>File Name</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>State</th>" +
+                        "</tr>" +
+                        cadRow
+                        +
+                    "<table>"+
+                "</div>";
+// return cadTable;
+
+/* This altTable variable is complete Alternate table which is use for pdf */
+var altTable =  "<div style='position: static;'>" +
+                    "<table style='table-layout: fixed;border: 1px solid #ddd;border-collapse:collapse;width: 100%;text-align: center;font-size: 11px;'>" +
+
+                        "<caption style='text-align:left;border: 1px solid #ddd; font-weight: bold; font-size: 17px; padding-left:20px'><a style='text-decoration: none; color: inherit;'>Alternate Parts (Alt.Pt.)</a></caption>"+
+                        
+                        "<tr>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Part Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Alt.Pt. Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:120px'>Alt.Pt. Name</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>Alt.Pt. Rev</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>Alt. Pt. Minor-Rev</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:70px'>Alt.Pt. State</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>AML Status</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Mfr.</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:120px'>Mfr. Part</th>" +
+                        "</tr>" +
+                        altPartRow
+                        +
+                    "<table>"+
+                "</div>";
+
+/* 
+* This altTable variable is complete Alternate table which is use for Excel 
+* Letter it can use for only Alternate table import functionality
+*/
+var altTableExcel = "<table id='altTable' style='display:none;'>" +
+                        
+                        "<tr>" +
+                            "<th>Part Number</th>" +
+                            "<th>Alt.Pt. Number</th>" +
+                            "<th>Alt.Pt. Name</th>" +
+                            "<th>Alt.Pt. Rev</th>" +
+                            "<th>Alt.Pt. Minor-Rev</th>" +
+                            "<th>Alt.Pt. State</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        altRowExcel
+                        +
+                    "<table>"+
+                "</div>";
+
+/* This substiteTable variable is complete Substitute table which is use for pdf */
+var substiteTable =  "<div style='position: static;'>" +
+                    "<table style='table-layout: fixed;border: 1px solid #ddd;border-collapse:collapse;width: 100%;text-align: center;font-size: 11px;'>" +
+                        
+                        "<caption style='text-align:left;border: 1px solid #ddd; font-weight: bold; font-size: 17px; padding-left:20px'><a style='text-decoration: none; color: inherit;'>Substitute Parts (Sub.Pt.)</a></caption>"+
+                        
+                        "<tr>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Part Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Sub.Pt. Number</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:120px'>Sub.Pt. Name</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>Sub.Pt. Rev</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>Sub. Pt. Minor-Rev</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:70px'>Sub.Pt. State</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:60px'>AML Status</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:80px'>Mfr.</th>" +
+                            "<th style='text-align:center;font-size: 11px;width:120px'>Mfr. Part</th>" +
+                        "</tr>" +
+                        substiteRow
+                        +
+                    "<table>"+
+                "</div>";
+
+/* 
+* This substiteTableExcel variable is complete Substitute table which is use for Excel 
+* Letter it can use for only Substitute table import functionality
+*/
+var substiteTableExcel = "<table id='sustituteTable' style='display:none;'>" +
+                        
+                        "<tr>" +
+                            "<th>Part Number</th>" +
+                            "<th>Sub.Pt. Number</th>" +
+                            "<th>Sub.Pt. Name</th>" +
+                            "<th>Sub.Pt. Rev</th>" +
+                            "<th>Sub.Pt. Minor-Rev</th>" +
+                            "<th>Sub.Pt. State</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        substiteRowExcel
+                        +
+                    "<table>"+
+                "</div>";
+                
+/* 
+* This bomToExcel has complete set of three table and mearge in single table
+* Use ID "bomreport" of this table for Export Excel report
+*/
+var bomToExcel = "<table  id='bomreport' style='display:none;'>" +
+                        
+                        "<caption>Bill of Materials</caption>"+
+                     
+                        "<tr></tr>"+
+                      
+                        "<tr> <th style='text-align: left'>Root Item</th><td style='text-align: left'>" + rootItem + "</td> </tr>" +
+                        "<tr> <th style='text-align: left'>Name</th><td style='text-align: left'>" + rootName + "</td> </tr>" +
+                        "<tr> <th style='text-align: left'>Major Revision</th><td style='text-align: left'>" + rootMajorRev + "</td> </tr>" +
+                        "<tr> <th style='text-align: left'>Minor Revision</th><td style='text-align: left'>" + rootMinorRev + "</td> </tr>" +
+                        "<tr> <th style='text-align: left'>State</th><td style='text-align: left'>" + rootState + "</td> </tr>" +
+                        
+                        "<tr></tr>"+
+                        
+                        "<tr>" +
+                            "<th style='text-align: left;'>BOM Level</th>" +
+                            "<th>Part Number</th>" +
+                            "<th>Name</th>" +
+                            "<th>Qty</th>" +
+                            "<th>IQC</th>" +
+                            "<th>Designator</th>" +
+                            "<th>Rev</th>" +
+                            "<th>Minor Rev</th>" +
+                            "<th>State</th>" +
+                            "<th>Package</th>" +
+                            "<th>Alternates</th>" +
+                            "<th>Substitutes</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        bomRow
+                        +
+                        
+                        "<tr></tr><tr></tr>"+
+                        "<tr><th>Specifications</th></tr>"+
+                         "<tr>" +
+                            "<th>Part Number</th>" +      
+                            "<th>Document Number</th>" +
+                            "<th>Revision</th>" +
+                            "<th>Document Name</th>" +
+                            // "<th>Drawing File Name</th>" +
+                             "<th>Description</th>" +
+                             "<th>File Name</th>" +
+                             "<th>State</th>" +
+                        "</tr>" +
+                        cadRowExcel
+                        +
+                        
+                        "<tr></tr><tr></tr>"+
+                        "<tr><th>Substitute Parts (Sub.Pt.)</th></tr>"+
+                         "<tr>" +
+                            "<th>Part Number</th>" +
+                            "<th>Sub.Pt. Number</th>" +
+                            "<th>Sub.Pt. Name</th>" +
+                            "<th>Sub.Pt. Rev</th>" +
+                            "<th>Sub.Pt. Minor-Rev</th>" +
+                            "<th>Sub.Pt. State</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        substiteRowExcel
+                        +
+                        
+                        "<tr></tr><tr></tr>"+
+                        "<tr><th>Alternate Parts (Alt.Pt.)</th></tr>"+
+                         "<tr>" +
+                            "<th>Part Number</th>" +
+                            "<th>Alt.Pt. Number</th>" +
+                            "<th>Alt.Pt. Name</th>" +
+                            "<th>Alt.Pt. Rev</th>" +
+                            "<th>Alt.Pt. Minor-Rev</th>" +
+                            "<th>Alt.Pt. State</th>" +
+                            "<th>AML Status</th>" +
+                            "<th>Mfr.</th>" +
+                            "<th>Mfr. Part</th>" +
+                        "</tr>" +
+                        altRowExcel
+                        +
+                        
+                    "<table>";
+
+
+/* Report design and marge all component in finalReport variable */
+var finalReport = 	"<div style='width:100%; padding-top : 15px''>"
+        +
+            "<div style='text-align:right; width: 30%; float:right; padding-right : 37px'><a href='#' onClick='window.print();return false'><img src='https://arastest12.ista.net/PLMTest12/Client/X-salt=15_12.0.0.15974-X/images/Print.svg' style='height: 25px;'></a><a href='#' onClick='substituteTableToExcel();return false'><img src='https://arastest12.ista.net/PLMTest12/Client/X-salt=16_12.0.0.15974-X/Images/ExportToExcel.svg' style='height: 25px;' /></a><a href='#' onClick='allDataExportToword(window.docx); return false ;'><img src='https://arastest12.ista.net/PLMTest12/Client/X-salt=16_12.0.0.15974-X/Images/ExportToWord.svg' style='height: 25px; display:none;'/></a></div>"
+        
+        +
+        "<div>"+
+            results 
+             +
+        "</div>"+
+        
+        "</br>" +
+        
+        "<br/><div>" + cadTable + "</div>" +
+        
+        "<br />" +
+        
+        "<br/><div>" + substiteTable + "</div>" +
+        
+        "</br>" +
+        
+        "<br/><div>" + altTable + "</div>" +
+        
+        "<br/><div>" + bomToExcel + "</div>";
+        
+        
+/* 
+* This Method Return htmlCode variable and render HTML form
+* Pass report design using finalReport variable inside <body> tag
+* Define function substituteTableToExcel() for Excel import
+*/       
+var htmlCode =
+"<html>"+
+"<head>"+
+"<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />"+
+
+"<script>" +
+
+
+//  "function substituteTableToExcel(){"+
+ 
+//     "var downloadLink;"+
+//     "var dataType = 'application/vnd.ms-excel';"+
+//     "var tableSelect = document.getElementById('bomreport');"+ // bomTable  sustituteTable
+    
+//     "var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');"+
+   
+    
+//     "filename = 'BOM.xls';"+
+    
+//     "downloadLink = document.createElement('a');"+
+    
+//     "document.body.appendChild(downloadLink);"+
+    
+//     "if(navigator.msSaveOrOpenBlob){"+
+//         "var blob = new Blob(['\ufeff', tableHTML], {"+ //   
+//             "type: dataType"+ // dataType 
+//         "});"+
+//         "navigator.msSaveOrOpenBlob( blob, filename);"+
+//     "}else{"+
+//         "downloadLink.href = 'data:' + dataType + ', ' + tableHTML;"+
+    
+//         "downloadLink.download = filename;"+
+        
+//         "downloadLink.click();"+
+//     "}"+
+// "}"+
+
+
+ "function substituteTableToExcel(){"+
+    "var table= document.getElementById('bomreport');"+
+    "var html = table.outerHTML;"+
+
+    // "var fileName = '"+rootItem+"_BOM.xls';"+ 
+    // "var a = window.document.createElement('a');"+
+
+    // "a.setAttribute('href', 'data:application/vnd.ms-excel,' + encodeURIComponent(html));"+
+    // "a.setAttribute('download', fileName);"+
+    // "a.click();"+
+
+/* This code work in https://arastest12.ista.net/PLMTEST_12SP8/Client/ system */
+    "while (html.indexOf('Ω') != -1) html = html.replace('Ω', '&#8486;');"+
+    "var fileName = '"+rootItem+"_BOM.xls';"+ 
+    "var a = window.document.createElement('a');"+
+    "a.setAttribute('href', 'data:application/vnd.ms-excel,' + escape(html));"+ 
+    "a.setAttribute('download', fileName);"+
+    "a.click();"+
+    
+
+//   " var test = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(html));"+ /* reference */
+
+"}"+
+
+
+"</script>"+
+"<link rel='stylesheet' type='text/css' href='styles.css'>"+
+
+"</head>"+
+"<body>"
++
+finalReport
++
+
+"</body>"+
+"</html>";
+
+return htmlCode;
